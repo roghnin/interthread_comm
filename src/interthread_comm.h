@@ -17,6 +17,7 @@
 #include <pthread.h>
 #include <sched.h>
 #include <unistd.h>
+#include <papi.h>
 
 //volatile int flip_flop[CHILD_CNT_MAX];// changed it into atom tags.
 std::atomic<int> flip_flop[CHILD_CNT_MAX];
@@ -63,6 +64,9 @@ void* child(void *Args){
 
 	//printf("[child]args->id:%d, args->core:%d\n",args->id, args->core);
 
+	//pinning the thread onto certain core.
+	//it's moved to the constructor of class child_thread tentatively.
+	/*
 	CPU_ZERO(&cpuset);
 	CPU_SET(args->core, &cpuset);
 	//the pthread_self() here might cause some unexpected problem (or optimizations).
@@ -74,6 +78,9 @@ void* child(void *Args){
 			printf("child%d assigned to core %d\n",args->id,j);
 		}
 	}
+	 */
+
+
 	next_flip_flop = args->id+1;
 	while(1){
 		while(flip_flop[args->id]==1);
@@ -103,7 +110,33 @@ public:
 		args->id = id;
 		args->core = core;
 
+		//tentatively, pin the current thread onto a new core, create a child thread, and pin
+		//it back.
+		int j;
+		int next_flip_flop;
+		//pthread_t child_pt;
+		cpu_set_t cpuset;
+		int cpu_err;
+		CPU_ZERO(&cpuset);
+		CPU_SET(args->core, &cpuset);
+		cpu_err = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+		for (j=0;j<CORE_CNT;j++){
+			if (CPU_ISSET(j, &cpuset)){
+				printf("parent assigned to core %d for child %d\n",j,args->id);
+			}
+		}
+
 		printf("pthread_create:%d\n",pthread_create(&pt, NULL, &child, (void *)args));
+
+		CPU_ZERO(&cpuset);
+		CPU_SET(0, &cpuset);
+		cpu_err = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+		for (j=0;j<CORE_CNT;j++){
+			if (CPU_ISSET(j, &cpuset)){
+				printf("parent assigned back to core %d\n",j);
+			}
+		}
+
 		//printf("child_pt:%lu\n",pt);
 
 	}
