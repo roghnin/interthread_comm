@@ -17,7 +17,7 @@
 #include <pthread.h>
 #include <sched.h>
 #include <unistd.h>
-#include <papi.h>
+//#include <papi.h>
 
 //volatile int flip_flop[CHILD_CNT_MAX];// changed it into atom tags.
 std::atomic<int> flip_flop[CHILD_CNT_MAX];
